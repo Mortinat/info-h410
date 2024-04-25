@@ -1,6 +1,6 @@
 import gymnasium as gym
 
-env = gym.make('MsPacman-v4', render_mode="human")
+env = gym.make('MsPacman-v4')
 env.reset()
 observation, info = env.reset()
 
