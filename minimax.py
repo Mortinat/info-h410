@@ -6,7 +6,7 @@ import math
 import inspect
 
 
-def negamax(board, depth):
+def negamax(board, depth, alpha, beta):
 
     valid_locations = board.get_valid_locations()
     is_terminal = board.is_terminal_node()
@@ -21,17 +21,22 @@ def negamax(board, depth):
         if b_copy.winning_move(-b_copy.turn):
             return col, (ROW_COUNT * COLUMN_COUNT + 1 - b_copy.rounds)/2
     column = valid_locations[0]
-    best_score = -ROW_COUNT * COLUMN_COUNT
+    max_score = (ROW_COUNT * COLUMN_COUNT - 1 - b_copy.rounds)/2
+    if (beta > max_score):
+        beta = max_score
+        if alpha >= beta:
+            return column, beta
 
     for col in valid_locations:
         row = board.get_next_open_row(col)
         b_copy = copy.deepcopy(board)
         b_copy.drop_piece(row, col)
-        new_score = -negamax(b_copy, depth - 1)[1]
-        if new_score > best_score:
-            best_score = new_score
-            column = col
-    return column, best_score
+        score = -negamax(b_copy, depth - 1, -beta, -alpha)[1]
+        if score >= beta:
+            return col, score
+        if score > alpha:
+            alpha = score
+    return column, alpha
 
 
 class BoardMinimax:
@@ -168,4 +173,4 @@ class MiniMax(Bot):
         :return: column where to place the piece
         """
         board = BoardMinimax(self._game._board, -self._game._turn, self._game._round)
-        return negamax(board, depth)
+        return negamax(board, depth, -math.inf, math.inf)
