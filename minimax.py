@@ -14,14 +14,17 @@ def negamax(board, depth, alpha, beta):
     if depth == 0 or is_terminal:
         return (None, 0)
 
-    for col in valid_locations:
-        row = board.get_next_open_row(col)
-        b_copy = copy.deepcopy(board)
-        b_copy.drop_piece(row, col)
-        if b_copy.winning_move(-b_copy.turn):
-            return col, (ROW_COUNT * COLUMN_COUNT + 1 - b_copy.rounds)/2
+    for col in range(COLUMN_COUNT):
+        col = board.columnOrder[col]
+        if col in valid_locations:
+            b_copy = copy.deepcopy(board)
+            row = b_copy.get_next_open_row(col)
+            b_copy.drop_piece(row, col)
+            if b_copy.winning_move(-b_copy.turn):
+                return col, ((ROW_COUNT * COLUMN_COUNT) + 1 - b_copy.rounds)/2
+
     column = valid_locations[0]
-    max_score = (ROW_COUNT * COLUMN_COUNT - 1 - b_copy.rounds)/2
+    max_score = ((ROW_COUNT * COLUMN_COUNT) - 1 - board.rounds)/2
     if (beta > max_score):
         beta = max_score
         if alpha >= beta:
@@ -44,6 +47,11 @@ class BoardMinimax:
         self.board = board
         self.turn = turn
         self.rounds = rounds
+        self.columnOrder = [3, 2, 4, 1, 5, 0, 6]
+
+        # use this to change the order of the columns
+        # for i in range(COLUMN_COUNT):
+        #     self.columnOrder[i] = COLUMN_COUNT//2 + (1 - 2*(i % 2))*(i+1)//2
 
     def get_valid_locations(self):
         """

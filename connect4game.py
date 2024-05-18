@@ -67,7 +67,7 @@ class Connect4Game(Observable):
         else:
             self._player1 = Bot(self, bot_type=player1, iteration=iteration)
         if player2 == MINIMAX:
-            self._player2 = MiniMax(self, depth=5, pruning=pruning2)
+            self._player2 = MiniMax(self, depth=depth2, pruning=pruning2)
         else:
             self._player2 = Bot(self, bot_type=player2)
         self.last_move = None
