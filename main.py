@@ -48,7 +48,7 @@ def main():
         p[0] = RANDOM
 
     # if args.player2 == "random":
-    p[1] = RANDOM
+    p[1] = MINIMAX
 
     game = Connect4Game(p[0], p[1], iteration=500, depth1=5, depth2=5)
     view = Connect4Viewer(game=game)

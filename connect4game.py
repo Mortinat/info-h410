@@ -13,6 +13,8 @@ from common import (
     Observable,
     Observer,
 )
+from minimax import MiniMax
+
 
 # Graphical size settings
 DISC_SIZE_RATIO = 0.8
@@ -60,8 +62,14 @@ class Connect4Game(Observable):
         self.bot = None
         self.moves = {1: [], -1: []}
         self.reset_game()
-        self._player1 = Bot(self, bot_type=player1)
-        self._player2 = Bot(self, bot_type=player2)
+        if player1 == MINIMAX:
+            self._player1 = MiniMax(self, depth=depth1, pruning=pruning1)
+        else:
+            self._player1 = Bot(self, bot_type=player1, iteration=iteration)
+        if player2 == MINIMAX:
+            self._player2 = MiniMax(self, depth=5, pruning=pruning2)
+        else:
+            self._player2 = Bot(self, bot_type=player2)
         self.last_move = None
 
     def reset_game(self):
