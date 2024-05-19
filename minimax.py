@@ -173,4 +173,20 @@ class MiniMax(Bot):
         :return: column where to place the piece
         """
         board = BoardMinimax(self._game._board, -self._game._turn, self._game._round)
-        return negamax(board, depth, -math.inf, math.inf)
+        min_score = -(ROW_COUNT * COLUMN_COUNT - board.rounds) // 2
+        max_score = (ROW_COUNT * COLUMN_COUNT + 1 - board.rounds) // 2
+        best_col = 0
+        while min_score < max_score:
+            med = min_score + (max_score - min_score) // 2
+            if med <= 0 and min_score // 2 < med:
+                med = min_score // 2
+            elif med >= 0 and max_score // 2 > med:
+                med = max_score // 2
+            result = negamax(board, depth, med, med + 1)
+            if result[1] <= med:
+                max_score = result[1]
+            else:
+                min_score = result[1]
+                best_col = result[0]
+        return best_col, min_score
+        # return negamax(board, depth, -math.inf, math.inf)
