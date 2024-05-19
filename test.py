@@ -13,7 +13,7 @@ with open("Test_L1_R1", "r") as f:
         for i in split_line[0]:
             board.play(int(i)-1)
         start = time.time()
-        result = mm.solve(board, 10000, -math.inf, math.inf)
+        result = mm.solve(board, 10000)
         stop = time.time()
         time_list.append(stop-start)
         if index > 50:
