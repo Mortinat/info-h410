@@ -1,10 +1,12 @@
 from bot import Bot
-import copy
 from common import ROW_COUNT, COLUMN_COUNT, MINIMAX
 import math
 
 
 COLUMN_ORDER = [3, 2, 4, 1, 5, 0, 6]
+PRECOMPUTED_TOP_MASKS = [(1 << (ROW_COUNT - 1)) << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
+BOTTOM_MASK = [1 << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
+COLUMN_MASK = [((1 << ROW_COUNT) - 1) << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
 # use this to change the order of the columns
 # for i in range(COLUMN_COUNT):
 #     self.columnOrder[i] = COLUMN_COUNT//2 + (1 - 2*(i % 2))*(i+1)//2
@@ -21,7 +23,7 @@ def negamax(board, depth, alpha, beta):
         col = COLUMN_ORDER[col]
         if board.can_play(col):
             column = col
-            b_copy = copy.deepcopy(board)
+            b_copy = board.copy()
             if b_copy.winning_move(col):
                 return col, ((ROW_COUNT * COLUMN_COUNT) + 1 - b_copy.rounds)/2
 
@@ -33,7 +35,7 @@ def negamax(board, depth, alpha, beta):
 
     for col in range(COLUMN_COUNT):
         if board.can_play(col):
-            b_copy = copy.deepcopy(board)
+            b_copy = board.copy()
             b_copy.play(col)
             score = -negamax(b_copy, depth - 1, -beta, -alpha)[1]
             if score >= beta:
@@ -46,6 +48,10 @@ def negamax(board, depth, alpha, beta):
 class BoardMinimax:
     def __init__(self, board, turn, rounds):
         self.rounds = rounds
+        if not board:
+            self.position = 0
+            self.mask = 0
+            return
 
         self.position = []
         for col in range(COLUMN_COUNT):
@@ -71,26 +77,24 @@ class BoardMinimax:
         #     print(''.join(values))
         # print()
 
-    def top_mask(self, col):
-        return (1 << (ROW_COUNT - 1)) << col * (ROW_COUNT + 1)
+    def copy(self):
+        new_board = BoardMinimax([], 0, 0)
+        new_board.position = self.position
+        new_board.mask = self.mask
+        new_board.rounds = self.rounds
+        return new_board
 
     def can_play(self, col):
-        return (self.mask & self.top_mask(col)) == 0
-
-    def bottom_mask(self, col):
-        return 1 << col * (ROW_COUNT + 1)
-
-    def column_mask(self, col):
-        return ((1 << ROW_COUNT) - 1) << col * (ROW_COUNT + 1)
+        return (self.mask & PRECOMPUTED_TOP_MASKS[col]) == 0
 
     def play(self, col):
         self.position ^= self.mask
-        self.mask |= self.mask + self.bottom_mask(col)
+        self.mask |= self.mask + BOTTOM_MASK[col]
         self.rounds += 1
 
     def winning_move(self, col):
         pos = self.position
-        pos |= (self.mask + self.bottom_mask(col)) & self.column_mask(col)
+        pos |= (self.mask + BOTTOM_MASK[col]) & COLUMN_MASK[col]
         return self.alignment(pos)
 
     def alignment(self, pos):
