@@ -28,17 +28,16 @@ TRANSPOSITION_TABLE = TranspositionTable()
 
 
 def negamax(board, depth, alpha, beta):
-    is_terminal = board.is_terminal_node()
+    assert (alpha < beta)
     valid_moves = [COLUMN_ORDER[col] for col in range(COLUMN_COUNT) if board.can_play(COLUMN_ORDER[col])]
 
-    if is_terminal:
+    if board.rounds == ROW_COUNT * COLUMN_COUNT:
         return (None, 0)
 
     for col in valid_moves:
         if board.winning_move(col):
             return col, ((ROW_COUNT * COLUMN_COUNT) + 1 - board.rounds)/2
 
-    column = valid_moves[0]
     max_score = ((ROW_COUNT * COLUMN_COUNT) - 1 - board.rounds)/2
     val = TRANSPOSITION_TABLE.lookup(board.key())
     if val:
@@ -46,7 +45,7 @@ def negamax(board, depth, alpha, beta):
     if (beta > max_score):
         beta = max_score
         if alpha >= beta:
-            return column, beta
+            return valid_moves[0], beta
 
     for col in valid_moves:
         b_copy = board.copy()
@@ -57,7 +56,26 @@ def negamax(board, depth, alpha, beta):
         if score > alpha:
             alpha = score
     TRANSPOSITION_TABLE.store(board.key(), alpha - MIN_SCORE + 1)
-    return column, alpha
+    return valid_moves[0], alpha
+
+
+def solve(board, depth, alpha, beta):
+    min_score = -(ROW_COUNT * COLUMN_COUNT - board.rounds) // 2
+    max_score = (ROW_COUNT * COLUMN_COUNT + 1 - board.rounds) // 2
+    best_col = 0
+    while min_score < max_score:
+        med = min_score + (max_score - min_score) // 2
+        if med <= 0 and min_score // 2 < med:
+            med = min_score // 2
+        elif med >= 0 and max_score // 2 > med:
+            med = max_score // 2
+        result = negamax(board, depth, med, med + 1)
+        if result[1] <= med:
+            max_score = result[1]
+        else:
+            min_score = result[1]
+            best_col = result[0]
+    return best_col, min_score
 
 
 class BoardMinimax:
@@ -134,9 +152,6 @@ class BoardMinimax:
             return True
 
         return False
-
-    def is_terminal_node(self):
-        return self.rounds == ROW_COUNT * COLUMN_COUNT or self.alignment(self.position)
 
     def key(self):
         return self.position + self.mask

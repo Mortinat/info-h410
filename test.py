@@ -5,7 +5,7 @@ import math
 import time
 
 time_list = []
-with open("Test_L2_R2", "r") as f:
+with open("Test_L1_R1", "r") as f:
     empty_board = [[EMPTY for _ in range(ROW_COUNT)] for _ in range(COLUMN_COUNT)]
     for index, line in enumerate(f.readlines()):
         board = mm.BoardMinimax(board=copy.deepcopy(empty_board), turn=1, rounds=0)
@@ -13,9 +13,9 @@ with open("Test_L2_R2", "r") as f:
         for i in split_line[0]:
             board.play(int(i)-1)
         start = time.time()
-        result = mm.negamax(board, 10000, -math.inf, math.inf)
+        result = mm.solve(board, 10000, -math.inf, math.inf)
         stop = time.time()
         time_list.append(stop-start)
-        print(sum(time_list)/len(time_list))
-        if index > 10:
+        if index > 50:
             break
+    print(sum(time_list)/len(time_list))
