@@ -1,153 +1,123 @@
 from bot import Bot
 import copy
-from common import MINIMAX, EMPTY, ROW_COUNT, COLUMN_COUNT, WINDOW_LENGTH
-import random
+from common import ROW_COUNT, COLUMN_COUNT, MINIMAX
 import math
-import inspect
+
+
+COLUMN_ORDER = [3, 2, 4, 1, 5, 0, 6]
+# use this to change the order of the columns
+# for i in range(COLUMN_COUNT):
+#     self.columnOrder[i] = COLUMN_COUNT//2 + (1 - 2*(i % 2))*(i+1)//2
 
 
 def negamax(board, depth, alpha, beta):
-
-    valid_locations = board.get_valid_locations()
     is_terminal = board.is_terminal_node()
 
-    if depth == 0 or is_terminal:
+    if is_terminal:
         return (None, 0)
 
+    column = None
     for col in range(COLUMN_COUNT):
-        col = board.columnOrder[col]
-        if col in valid_locations:
+        col = COLUMN_ORDER[col]
+        if board.can_play(col):
+            column = col
             b_copy = copy.deepcopy(board)
-            row = b_copy.get_next_open_row(col)
-            b_copy.drop_piece(row, col)
-            if b_copy.winning_move(-b_copy.turn):
+            if b_copy.winning_move(col):
                 return col, ((ROW_COUNT * COLUMN_COUNT) + 1 - b_copy.rounds)/2
 
-    column = valid_locations[0]
     max_score = ((ROW_COUNT * COLUMN_COUNT) - 1 - board.rounds)/2
     if (beta > max_score):
         beta = max_score
         if alpha >= beta:
             return column, beta
 
-    for col in valid_locations:
-        row = board.get_next_open_row(col)
-        b_copy = copy.deepcopy(board)
-        b_copy.drop_piece(row, col)
-        score = -negamax(b_copy, depth - 1, -beta, -alpha)[1]
-        if score >= beta:
-            return col, score
-        if score > alpha:
-            alpha = score
+    for col in range(COLUMN_COUNT):
+        if board.can_play(col):
+            b_copy = copy.deepcopy(board)
+            b_copy.play(col)
+            score = -negamax(b_copy, depth - 1, -beta, -alpha)[1]
+            if score >= beta:
+                return col, score
+            if score > alpha:
+                alpha = score
     return column, alpha
 
 
 class BoardMinimax:
     def __init__(self, board, turn, rounds):
-        self.board = board
-        self.turn = turn
         self.rounds = rounds
-        self.columnOrder = [3, 2, 4, 1, 5, 0, 6]
 
-        # use this to change the order of the columns
-        # for i in range(COLUMN_COUNT):
-        #     self.columnOrder[i] = COLUMN_COUNT//2 + (1 - 2*(i % 2))*(i+1)//2
+        self.position = []
+        for col in range(COLUMN_COUNT):
+            for row in range(ROW_COUNT):
+                if board[col][row] == 1:
+                    self.position.append('1')
+                elif board[col][row] == -1:
+                    self.position.append('-1')
+                else:
+                    self.position.append('0')
+            self.position.append('0')
+        self.position = self.position[::-1]
+        self.mask = int(''.join(self.position).replace('-1', '1'), 2)
+        self.position = int(''.join(self.position).replace('-1', '0'), 2)
 
-    def get_valid_locations(self):
-        """
-        Returns all the valid columns where the player can play, aka the columns
-        that are not full
+        # PRINT BOARD
+        # test = list(str(bin(self.position))[2:])[::-1]
+        # for i in range(49-len(test)):
+        #     test.append('0')
+        # for start in range(5, -1, -1):
+        #     indices = [start + 7 * i for i in range(7)]
+        #     values = [test[index] for index in indices]
+        #     print(''.join(values))
+        # print()
 
-        :return: list of all valid column indices
-        """
-        free_cols = [i for i, x in enumerate(self.board) if x[-1] == 0]
-        if len(free_cols) == 0:
-            return None
-        return free_cols
+    def top_mask(self, col):
+        return (1 << (ROW_COUNT - 1)) << col * (ROW_COUNT + 1)
 
-    def drop_piece(self, row, col):
-        """
-        Drop a piece in the board at the specified position
-        :param row: one of the row of the board
-        :param col: one of the column of the board
-        """
-        self.board[col][row] = self.turn
+    def can_play(self, col):
+        return (self.mask & self.top_mask(col)) == 0
+
+    def bottom_mask(self, col):
+        return 1 << col * (ROW_COUNT + 1)
+
+    def column_mask(self, col):
+        return ((1 << ROW_COUNT) - 1) << col * (ROW_COUNT + 1)
+
+    def play(self, col):
+        self.position ^= self.mask
+        self.mask |= self.mask + self.bottom_mask(col)
         self.rounds += 1
-        self.turn = -self.turn
 
-    def get_next_open_row(self, col):
-        """
-        Return the first row which does not have a piece in the specified column (col)
-        :param col: one of the column of the board
-        :return: row number
-        """
-        for r in range(ROW_COUNT):
-            if self.board[col][r] == 0:
-                return r
+    def winning_move(self, col):
+        pos = self.position
+        pos |= (self.mask + self.bottom_mask(col)) & self.column_mask(col)
+        return self.alignment(pos)
 
-    def winning_move(self, piece):
-        """
-        Check if the game has been won
-        :param board: board with all the pieces that have been placed
-        :param piece: 1 or -1 depending on whose turn it is
-        """
-        # Check horizontal locations for win
-        # print(self.board)
-        for c in range(COLUMN_COUNT - 3):
-            for r in range(ROW_COUNT):
-                if (
-                    self.board[c][r] == piece
-                    and self.board[c + 1][r] == piece
-                    and self.board[c + 2][r] == piece
-                    and self.board[c + 3][r] == piece
-                ):
-                    return True
+    def alignment(self, pos):
+        # Horizontal check
+        m = pos & (pos >> (ROW_COUNT + 1))
+        if m & (m >> (2 * (ROW_COUNT + 1))):
+            return True
 
-        # Check vertical locations for win
-        for c in range(COLUMN_COUNT):
-            for r in range(ROW_COUNT - 3):
-                if (
-                    self.board[c][r] == piece
-                    and self.board[c][r + 1] == piece
-                    and self.board[c][r + 2] == piece
-                    and self.board[c][r + 3] == piece
-                ):
-                    return True
+        # Diagonal check (bottom-left to top-right)
+        m = pos & (pos >> ROW_COUNT)
+        if m & (m >> (2 * ROW_COUNT)):
+            return True
 
-        # Check positively sloped diaganols
-        for c in range(COLUMN_COUNT - 3):
-            for r in range(ROW_COUNT - 3):
-                if (
-                    self.board[c][r] == piece
-                    and self.board[c + 1][r + 1] == piece
-                    and self.board[c + 2][r + 2] == piece
-                    and self.board[c + 3][r + 3] == piece
-                ):
-                    return True
+        # Diagonal check (top-left to bottom-right)
+        m = pos & (pos >> (ROW_COUNT + 2))
+        if m & (m >> (2 * (ROW_COUNT + 2))):
+            return True
 
-        # Check negatively sloped diaganols
-        for c in range(COLUMN_COUNT - 3):
-            for r in range(3, ROW_COUNT):
-                if (
-                    self.board[c][r] == piece
-                    and self.board[c + 1][r - 1] == piece
-                    and self.board[c + 2][r - 2] == piece
-                    and self.board[c + 3][r - 3] == piece
-                ):
-                    return True
+        # Vertical check
+        m = pos & (pos >> 1)
+        if m & (m >> 2):
+            return True
+
         return False
 
     def is_terminal_node(self):
-        """
-        Determines wheter the game is finished or not
-        :param board: board with all the pieces that have been placed
-        :return: boolean that determines wheter the game is finish or not
-        """
-        return (
-            self.winning_move(self.turn * -1)
-            or self.winning_move(self.turn)
-            or self.get_valid_locations() is None
-        )
+        return self.rounds == ROW_COUNT * COLUMN_COUNT or self.alignment(self.position)
 
 
 class MiniMax(Bot):
