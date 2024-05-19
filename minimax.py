@@ -5,7 +5,7 @@ import math
 
 COLUMN_ORDER = [3, 2, 4, 1, 5, 0, 6]
 PRECOMPUTED_TOP_MASKS = [(1 << (ROW_COUNT - 1)) << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
-BOTTOM_MASK = [1 << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
+BOTTOM_MASK_COL = [1 << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
 COLUMN_MASK = [((1 << ROW_COUNT) - 1) << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
 MIN_SCORE = -(ROW_COUNT*COLUMN_COUNT)/2 + 3;
 # use this to change the order of the columns
@@ -24,14 +24,26 @@ class TranspositionTable:
         return self.table.get(key, None)
 
 
+def bottom(width, height):
+    if width == 0:
+        return 0
+    return bottom(width - 1, height) | 1 << (width - 1) * (height + 1)
+
+
 TRANSPOSITION_TABLE = TranspositionTable()
+BOTTOM_MASK = bottom(COLUMN_COUNT, ROW_COUNT)
+BOARD_MASK = BOTTOM_MASK * ((1 << ROW_COUNT) - 1)
 
 
 def negamax(board, depth, alpha, beta):
     assert (alpha < beta)
+
+    if board.possible_no_lossing_moves() == 0:
+        return (None, -((ROW_COUNT * COLUMN_COUNT) - 1 - board.rounds)/2)
+
     valid_moves = [COLUMN_ORDER[col] for col in range(COLUMN_COUNT) if board.can_play(COLUMN_ORDER[col])]
 
-    if board.rounds == ROW_COUNT * COLUMN_COUNT:
+    if board.rounds == ROW_COUNT * COLUMN_COUNT or depth == 0 or not valid_moves:
         return (None, 0)
 
     for col in valid_moves:
@@ -122,12 +134,12 @@ class BoardMinimax:
 
     def play(self, col):
         self.position ^= self.mask
-        self.mask |= self.mask + BOTTOM_MASK[col]
+        self.mask |= self.mask + BOTTOM_MASK_COL[col]
         self.rounds += 1
 
     def winning_move(self, col):
         pos = self.position
-        pos |= (self.mask + BOTTOM_MASK[col]) & COLUMN_MASK[col]
+        pos |= (self.mask + BOTTOM_MASK_COL[col]) & COLUMN_MASK[col]
         return self.alignment(pos)
 
     def alignment(self, pos):
@@ -155,6 +167,62 @@ class BoardMinimax:
 
     def key(self):
         return self.position + self.mask
+
+    def opponent_winning_position(self):
+        return self.compute_winning_position(self.position ^ self.mask, self.mask)
+
+    def possible(self):
+        return (self.mask + BOTTOM_MASK) & BOARD_MASK
+
+    def winning_position(self):
+        return self.compute_winning_position(self.position, self.mask)
+
+    def canWinNext(self):
+        return self.winning_position() & self.possible()
+
+    @staticmethod
+    def compute_winning_position(position, mask):
+        # vertical
+        r = (position << 1) & (position << 2) & (position << 3)
+
+        # horizontal
+        p = (position << (ROW_COUNT + 1)) & (position << 2 * (ROW_COUNT + 1))
+        r |= p & (position << 3 * (ROW_COUNT + 1))
+        r |= p & (position >> (ROW_COUNT + 1))
+        p >>= 3 * (ROW_COUNT + 1)
+        r |= p & (position << (ROW_COUNT + 1))
+        r |= p & (position >> 3 * (ROW_COUNT + 1))
+
+        # diagonal 1
+        p = (position << ROW_COUNT) & (position << 2 * ROW_COUNT)
+        r |= p & (position << 3 * ROW_COUNT)
+        r |= p & (position >> ROW_COUNT)
+        p >>= 3 * ROW_COUNT
+        r |= p & (position << ROW_COUNT)
+        r |= p & (position >> 3 * ROW_COUNT)
+
+        # diagonal 2
+        p = (position << (ROW_COUNT + 2)) & (position << 2 * (ROW_COUNT + 2))
+        r |= p & (position << 3 * (ROW_COUNT + 2))
+        r |= p & (position >> (ROW_COUNT + 2))
+        p >>= 3 * (ROW_COUNT + 2)
+        r |= p & (position << (ROW_COUNT + 2))
+        r |= p & (position >> 3 * (ROW_COUNT + 2))
+
+        return r & (BOARD_MASK ^ mask)
+
+    def possible_no_lossing_moves(self):
+        possible_mask = self.possible()
+        opponent_win = self.opponent_winning_position()
+        forced_moves = possible_mask & opponent_win
+
+        if forced_moves:
+            if forced_moves & (forced_moves - 1):  # check if there is more than one forced move
+                return 0                           # the opponent has two winning moves and you cannot stop him
+            else:
+                possible_mask = forced_moves       # enforce to play the single forced move
+
+        return possible_mask & ~(opponent_win >> 1)  # avoid playing below an opponent winning spot
 
 
 class MiniMax(Bot):
