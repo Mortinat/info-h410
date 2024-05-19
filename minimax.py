@@ -7,41 +7,56 @@ COLUMN_ORDER = [3, 2, 4, 1, 5, 0, 6]
 PRECOMPUTED_TOP_MASKS = [(1 << (ROW_COUNT - 1)) << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
 BOTTOM_MASK = [1 << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
 COLUMN_MASK = [((1 << ROW_COUNT) - 1) << col * (ROW_COUNT + 1) for col in range(COLUMN_COUNT)]
+MIN_SCORE = -(ROW_COUNT*COLUMN_COUNT)/2 + 3;
 # use this to change the order of the columns
 # for i in range(COLUMN_COUNT):
 #     self.columnOrder[i] = COLUMN_COUNT//2 + (1 - 2*(i % 2))*(i+1)//2
 
 
+class TranspositionTable:
+    def __init__(self):
+        self.table = {}
+
+    def store(self, key, value):
+        self.table[key] = value
+
+    def lookup(self, key):
+        return self.table.get(key, None)
+
+
+TRANSPOSITION_TABLE = TranspositionTable()
+
+
 def negamax(board, depth, alpha, beta):
     is_terminal = board.is_terminal_node()
+    valid_moves = [COLUMN_ORDER[col] for col in range(COLUMN_COUNT) if board.can_play(COLUMN_ORDER[col])]
 
     if is_terminal:
         return (None, 0)
 
-    column = None
-    for col in range(COLUMN_COUNT):
-        col = COLUMN_ORDER[col]
-        if board.can_play(col):
-            column = col
-            b_copy = board.copy()
-            if b_copy.winning_move(col):
-                return col, ((ROW_COUNT * COLUMN_COUNT) + 1 - b_copy.rounds)/2
+    for col in valid_moves:
+        if board.winning_move(col):
+            return col, ((ROW_COUNT * COLUMN_COUNT) + 1 - board.rounds)/2
 
+    column = valid_moves[0]
     max_score = ((ROW_COUNT * COLUMN_COUNT) - 1 - board.rounds)/2
+    val = TRANSPOSITION_TABLE.lookup(board.key())
+    if val:
+        max_score = val + MIN_SCORE - 1
     if (beta > max_score):
         beta = max_score
         if alpha >= beta:
             return column, beta
 
-    for col in range(COLUMN_COUNT):
-        if board.can_play(col):
-            b_copy = board.copy()
-            b_copy.play(col)
-            score = -negamax(b_copy, depth - 1, -beta, -alpha)[1]
-            if score >= beta:
-                return col, score
-            if score > alpha:
-                alpha = score
+    for col in valid_moves:
+        b_copy = board.copy()
+        b_copy.play(col)
+        score = -negamax(b_copy, depth - 1, -beta, -alpha)[1]
+        if score >= beta:
+            return col, score
+        if score > alpha:
+            alpha = score
+    TRANSPOSITION_TABLE.store(board.key(), alpha - MIN_SCORE + 1)
     return column, alpha
 
 
@@ -122,6 +137,9 @@ class BoardMinimax:
 
     def is_terminal_node(self):
         return self.rounds == ROW_COUNT * COLUMN_COUNT or self.alignment(self.position)
+
+    def key(self):
+        return self.position + self.mask
 
 
 class MiniMax(Bot):
